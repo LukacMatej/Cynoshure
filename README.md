@@ -18,7 +18,6 @@ Cynoshure is an interactive, terminal-based SSH Manager built with Python and th
 ## Prerequisites
 
 - Python 3.8+
-- `textual`
 
 ## Installation
 
@@ -36,8 +35,18 @@ Cynoshure is an interactive, terminal-based SSH Manager built with Python and th
 
 3. Install the required dependencies:
    ```bash
-   pip install textual
+   pip install -r requirements.txt
    ```
+
+### Standalone Executable (Optional)
+
+If you want to install Cynoshure as a standalone executable available system-wide, you can use the included `install.sh` script. This script bundles the application using PyInstaller and installs it to `/usr/local/bin/cyno`.
+
+Make sure you have `pyinstaller` installed, then run the script:
+```bash
+pip install pyinstaller
+./install.sh
+```
 
 ## Usage
 
