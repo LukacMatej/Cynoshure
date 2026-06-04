@@ -1,3 +1,4 @@
+#!/home/mates/Python/Cynoshure/.venv/bin/python3
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Tree, Label, Button, ContentSwitcher, Input
 from textual.containers import Horizontal, Vertical
@@ -7,124 +8,9 @@ import subprocess
 import json
 import os
 
-class Options(dict):
-    """A simple dictionary subclass to hold SSH options."""
-    def __init__(self, filepath="options.json"):
-        super().__init__()
-        self.filepath = filepath
-        self.load()
-
-    def load(self):
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, "r") as f:
-                    super().update(json.load(f))
-            except json.JSONDecodeError:
-                pass
-        self.setdefault("host", "N/A")
-        self.setdefault("user", "N/A")
-        self.setdefault("x11", False)
-        self.setdefault("jump_host", "N/A")
-        self.setdefault("port_forward", "N/A")
-
-    def save(self):
-        with open(self.filepath, "w") as f:
-            json.dump(self, f, indent=4)
-
-class HistoryStore(list):
-    """A list subclass to manage connection history."""
-    def __init__(self, filepath="history.json"):
-        super().__init__()
-        self.filepath = filepath
-        self.load()
-
-    def load(self):
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, "r") as f:
-                    self.extend(json.load(f))
-            except json.JSONDecodeError:
-                pass
-
-    def save(self):
-        with open(self.filepath, "w") as f:
-            json.dump(self, f, indent=4)
-
-    def add_entry(self, entry):
-        for existing in self:
-            if existing.get("target") == entry.get("target"):
-                return False
-        self.append(entry)
-        self.save()
-        return True
-
-    def remove_entry(self, target):
-        for existing in self:
-            if existing.get("target") == target:
-                self.remove(existing)
-                self.save()
-                return True
-        return False
-
-class SessionStore(list):
-    """A list subclass to manage saved sessions (favorites)."""
-    def __init__(self, filepath="sessions.json"):
-        super().__init__()
-        self.filepath = filepath
-        self.load()
-
-    def load(self):
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, "r") as f:
-                    self.extend(json.load(f))
-            except json.JSONDecodeError:
-                pass
-
-    def save(self):
-        with open(self.filepath, "w") as f:
-            json.dump(self, f, indent=4)
-
-    def add_entry(self, entry):
-        for existing in self:
-            if existing.get("target") == entry.get("target"):
-                return False
-        self.append(entry)
-        self.save()
-        return True
-    
-    def remove_entry(self, target):
-        for existing in self:
-            if existing.get("target") == target:
-                self.remove(existing)
-                self.save()
-                return True
-        return False
-
-class PanelInput(Input):
-    """Custom input that yields focus to the left panel when pressing left at the start."""
-    def action_cursor_left(self) -> None:
-        if self.cursor_position == 0:
-            self.app.focus_left_panel()
-        else:
-            super().action_cursor_left()
-
-
-class SSHManagerTree(Tree):
-    """Custom tree that jumps to ssh-config when pressing down at the bottom."""
-    def action_cursor_down(self) -> None:
-        old_line = self.cursor_line
-        super().action_cursor_down()
-        if self.cursor_line == old_line:
-            self.app.query_one("#ssh-config").focus()
-
-class SSHConfigTree(Tree):
-    """Custom tree that jumps to ssh-manager when pressing up at the top."""
-    def action_cursor_up(self) -> None:
-        old_line = self.cursor_line
-        super().action_cursor_up()
-        if self.cursor_line == old_line:
-            self.app.query_one("#ssh-manager").focus()
+from tree import SSHManagerTree, SSHConfigTree
+from options import Options
+from list import HistoryStore, SessionStore
 
 class Cynoshure(App):
     """SSH Manager with an interactive Tree sidebar."""
@@ -173,7 +59,7 @@ class Cynoshure(App):
                         yield Label("Select an item from the tree to see details...")
                     with Vertical(id="quick-connect-view"):
                         yield Label("[bold cyan]Quick Connect[/bold cyan]\n\nEnter the host address to connect:")
-                        yield PanelInput(placeholder="e.g. user@192.168.1.50 or 10.0.0.5", id="quick-connect-input")
+                        yield Input(placeholder="e.g. user@192.168.1.50 or 10.0.0.5", id="quick-connect-input")
                         with Horizontal():
                             yield Button("Connect", id="btn-quick-connect", variant="success")
                             yield Button("Favorite", id="btn-quick-favorite", variant="primary")
@@ -184,7 +70,7 @@ class Cynoshure(App):
                             yield Button("Delete", id="btn-quick-delete", variant="error")
                     with Vertical(id="config-view"):
                         yield Label("", id="config-label")
-                        yield PanelInput(placeholder="Enter new value...", id="config-input")
+                        yield Input(placeholder="Enter new value...", id="config-input")
                         with Horizontal():
                             yield Button("Save", id="btn-save")
                             yield Button("Default", id="btn-default", variant="warning")
@@ -337,9 +223,13 @@ class Cynoshure(App):
 
             # Suspend the Textual App to yield terminal control to SSH
             with self.suspend():
-                print(f"\n🚀 Connecting to {target}...\n")
-                subprocess.run(cmd)
-                input("\nPress Enter to return to Cynoshure...")
+                print(f"\n🚀 Connecting to {target} as {user}...\n")
+                print(f"🔧 SSH Command: {' '.join(cmd)}\n")
+                try:
+                    subprocess.run(cmd)
+                    input("\nPress Enter to return to Cynoshure...")
+                except Exception,KeyboardInterrupt:
+                    pass
 
     @on(Tree.NodeSelected)
     def handle_node_selection(self, event: Tree.NodeSelected) -> None:
@@ -372,7 +262,7 @@ class Cynoshure(App):
                     x11_val = data.get('x11', False)
                     jump_val = data.get('jump_host', 'N/A')
                     port_val = data.get('port_forward', 'N/A')
-                    target_val = data.get('target')
+                    target_val = data.get('target', 'N/A')
                     self.add_session(host_val, user_val, x11_val, target_val, jump_val, port_val)
                 else:
                     info_label = self.query_one("#info-label", Label)
@@ -464,9 +354,9 @@ class Cynoshure(App):
     def connect_to_ssh(self, event: Button.Pressed) -> None:
         """Execute the SSH connection using the configured settings."""
         if hasattr(self, 'current_connection'):
-            host = self.current_connection.get("host")
-            user = self.current_connection.get("user")
-            x11 = self.current_connection.get("x11")
+            host = self.current_connection.get("host", "N/A")
+            user = self.current_connection.get("user", "N/A")
+            x11 = self.current_connection.get("x11", False)
             jump_host = self.current_connection.get("jump_host", "N/A")
             port_forward = self.current_connection.get("port_forward", "N/A")
             self._run_ssh(host, user, x11, jump_host, port_forward)
@@ -482,10 +372,11 @@ class Cynoshure(App):
         jump_host = self.options.get("jump_host", "N/A")
         port_forward = self.options.get("port_forward", "N/A")
         
-        user_val = "N/A"
         host_val = target
         if "@" in target:
             user_val, host_val = target.split("@", 1)
+        elif self.options.get("user", "N/A") != "N/A":
+            user_val = self.options.get("user", "N/A")
         self._run_ssh(host_val, user_val, x11, jump_host, port_forward)
 
     @on(Button.Pressed, "#btn-quick-favorite")
