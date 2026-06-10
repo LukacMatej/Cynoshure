@@ -1,16 +1,16 @@
 #!/home/mates/Python/Cynoshure/.venv/bin/python3
+import subprocess
+
+from textual import on
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Tree, Label, Button, ContentSwitcher, Input
 from textual.containers import Horizontal, Vertical
 from textual.events import Key
-from textual import on
-import subprocess
-import json
-import os
+from textual.widgets import Button, ContentSwitcher, Footer, Header, Input, Label, Tree
 
-from tree import SSHManagerTree, SSHConfigTree
-from options import Options
 from list import HistoryStore, SessionStore
+from options import Options
+from tree import SSHConfigTree, SSHManagerTree
+
 
 class Cynoshure(App):
     """SSH Manager with an interactive Tree sidebar."""
@@ -47,7 +47,7 @@ class Cynoshure(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        
+
         with Horizontal():
             with Vertical(id="sidebar"):
                 yield SSHManagerTree("🛠️ SSH Manager", id="ssh-manager")
@@ -58,23 +58,36 @@ class Cynoshure(App):
                     with Vertical(id="empty-view"):
                         yield Label("Select an item from the tree to see details...")
                     with Vertical(id="quick-connect-view"):
-                        yield Label("[bold cyan]Quick Connect[/bold cyan]\n\nEnter the host address to connect:")
-                        yield Input(placeholder="e.g. user@192.168.1.50 or 10.0.0.5", id="quick-connect-input")
+                        yield Label(
+                            "[bold cyan]Quick Connect[/bold cyan]\n\nEnter the host address to connect:"
+                        )
+                        yield Input(
+                            placeholder="e.g. user@192.168.1.50 or 10.0.0.5",
+                            id="quick-connect-input",
+                        )
                         with Horizontal():
-                            yield Button("Connect", id="btn-quick-connect", variant="success")
-                            yield Button("Favorite", id="btn-quick-favorite", variant="primary")
+                            yield Button(
+                                "Connect", id="btn-quick-connect", variant="success"
+                            )
+                            yield Button(
+                                "Favorite", id="btn-quick-favorite", variant="primary"
+                            )
                     with Vertical(id="connection-view"):
                         yield Label("", id="info-label")
                         with Horizontal():
-                            yield Button("Connect via SSH", id="btn-connect", variant="success")
-                            yield Button("Delete", id="btn-quick-delete", variant="error")
+                            yield Button(
+                                "Connect via SSH", id="btn-connect", variant="success"
+                            )
+                            yield Button(
+                                "Delete", id="btn-quick-delete", variant="error"
+                            )
                     with Vertical(id="config-view"):
                         yield Label("", id="config-label")
                         yield Input(placeholder="Enter new value...", id="config-input")
                         with Horizontal():
                             yield Button("Save", id="btn-save")
                             yield Button("Default", id="btn-default", variant="warning")
-                
+
         yield Footer()
 
     def focus_right_panel(self) -> None:
@@ -127,15 +140,15 @@ class Cynoshure(App):
         self.sessions_node = connections.add("⭐ Sessions", expand=True)
         for item in self.sessions:
             self.sessions_node.add_leaf(
-                f"⭐ {item['target']}", 
+                f"⭐ {item['target']}",
                 {
-                    "target": item["target"], 
-                    "host": item.get("host", "N/A"), 
-                    "user": item.get("user", "N/A"), 
+                    "target": item["target"],
+                    "host": item.get("host", "N/A"),
+                    "user": item.get("user", "N/A"),
                     "x11": item.get("x11", False),
                     "jump_host": item.get("jump_host", "N/A"),
-                    "port_forward": item.get("port_forward", "N/A")
-                }
+                    "port_forward": item.get("port_forward", "N/A"),
+                },
             )
 
         # 2. Create the 'History' branch
@@ -155,54 +168,92 @@ class Cynoshure(App):
 
     def add_history_to_tree(self, item: dict) -> None:
         node = self.history_node.add(item["target"])
-        node.add_leaf("🚀 Connect", {
-            "history_action": "connect",
-            "target": item["target"],
-            "host": item.get("host", "N/A"),
-            "user": item.get("user", "N/A"),
-            "x11": item.get("x11", False),
-            "jump_host": item.get("jump_host", "N/A"),
-            "port_forward": item.get("port_forward", "N/A")
-        })
-        node.add_leaf("⭐ Favorite", {
-            "history_action": "favorite",
-            "target": item["target"],
-            "host": item.get("host", "N/A"),
-            "user": item.get("user", "N/A"),
-            "x11": item.get("x11", False),
-            "jump_host": item.get("jump_host", "N/A"),
-            "port_forward": item.get("port_forward", "N/A")
-        })
-        node.add_leaf("❌ Delete", {
-            "history_action": "delete",
-            "target": item["target"]
-        })
+        node.add_leaf(
+            "🚀 Connect",
+            {
+                "history_action": "connect",
+                "target": item["target"],
+                "host": item.get("host", "N/A"),
+                "user": item.get("user", "N/A"),
+                "x11": item.get("x11", False),
+                "jump_host": item.get("jump_host", "N/A"),
+                "port_forward": item.get("port_forward", "N/A"),
+            },
+        )
+        node.add_leaf(
+            "⭐ Favorite",
+            {
+                "history_action": "favorite",
+                "target": item["target"],
+                "host": item.get("host", "N/A"),
+                "user": item.get("user", "N/A"),
+                "x11": item.get("x11", False),
+                "jump_host": item.get("jump_host", "N/A"),
+                "port_forward": item.get("port_forward", "N/A"),
+            },
+        )
+        node.add_leaf(
+            "❌ Delete", {"history_action": "delete", "target": item["target"]}
+        )
 
-    def record_history(self, host: str, user: str, x11: bool, target: str, jump_host: str = "N/A", port_forward: str = "N/A") -> None:
+    def record_history(
+        self,
+        host: str,
+        user: str | None,
+        x11: bool,
+        target: str,
+        jump_host: str = "N/A",
+        port_forward: str = "N/A",
+    ) -> None:
         entry = {
             "target": target,
             "host": host,
             "user": user,
             "x11": x11,
             "jump_host": jump_host,
-            "port_forward": port_forward
+            "port_forward": port_forward,
         }
         if self.history.add_entry(entry):
             self.add_history_to_tree(entry)
 
-    def add_session(self, host: str, user: str, x11: bool, target: str, jump_host: str = "N/A", port_forward: str = "N/A") -> None:
+    def add_session(
+        self,
+        host: str,
+        user: str | None,
+        x11: bool,
+        target: str,
+        jump_host: str = "N/A",
+        port_forward: str = "N/A",
+    ) -> None:
         entry = {
             "target": target,
             "host": host,
             "user": user,
             "x11": x11,
             "jump_host": jump_host,
-            "port_forward": port_forward
+            "port_forward": port_forward,
         }
         if self.sessions.add_entry(entry):
-            self.sessions_node.add_leaf(f"⭐ {target}", {"target": target, "host": host, "user": user, "x11": x11, "jump_host": jump_host, "port_forward": port_forward})
+            self.sessions_node.add_leaf(
+                f"⭐ {target}",
+                {
+                    "target": target,
+                    "host": host,
+                    "user": user,
+                    "x11": x11,
+                    "jump_host": jump_host,
+                    "port_forward": port_forward,
+                },
+            )
 
-    def _run_ssh(self, host: str, user: str, x11: bool, jump_host: str = "N/A", port_forward: str = "N/A") -> None:
+    def _run_ssh(
+        self,
+        host: str,
+        user: str | None,
+        x11: bool,
+        jump_host: str = "N/A",
+        port_forward: str = "N/A",
+    ) -> None:
         """Helper method to construct and run the SSH command."""
         key_path = self.options.get("key_path")
         if host and host != "N/A":
@@ -215,10 +266,12 @@ class Cynoshure(App):
                 cmd.extend(["-L", port_forward])
             if key_path and str(key_path).strip() and str(key_path).strip() != "N/A":
                 cmd.extend(["-i", str(key_path).strip()])
+            if user and user != "N/A":
+                cmd.extend(["-l", user])
 
             target = f"{user}@{host}" if user and user != "N/A" else host
             cmd.append(target)
-            
+
             self.record_history(host, user, x11, target, jump_host, port_forward)
 
             # Suspend the Textual App to yield terminal control to SSH
@@ -228,7 +281,7 @@ class Cynoshure(App):
                 try:
                     subprocess.run(cmd)
                     input("\nPress Enter to return to Cynoshure...")
-                except Exception,KeyboardInterrupt:
+                except Exception, KeyboardInterrupt:
                     pass
 
     @on(Tree.NodeSelected)
@@ -240,16 +293,16 @@ class Cynoshure(App):
         if not event.node.children:
             # Retrieve the dictionary we attached to the node in on_mount
             data = event.node.data or {}
-            
+
             if event.control.id == "ssh-manager":
                 if data.get("quick_connect"):
                     switcher.current = "quick-connect-view"
                 elif data.get("history_action") == "connect":
-                    user_val = data.get('user', 'N/A')
-                    host_val = data.get('host', 'N/A')
-                    x11_val = data.get('x11', False)
-                    jump_val = data.get('jump_host', 'N/A')
-                    port_val = data.get('port_forward', 'N/A')
+                    user_val = data.get("user", "N/A")
+                    host_val = data.get("host", "N/A")
+                    x11_val = data.get("x11", False)
+                    jump_val = data.get("jump_host", "N/A")
+                    port_val = data.get("port_forward", "N/A")
                     self._run_ssh(host_val, user_val, x11_val, jump_val, port_val)
                 elif data.get("history_action") == "delete":
                     self.history.remove_entry(data.get("target"))
@@ -257,31 +310,55 @@ class Cynoshure(App):
                         event.node.parent.remove()
                     switcher.current = "empty-view"
                 elif data.get("history_action") == "favorite":
-                    user_val = data.get('user', 'N/A')
-                    host_val = data.get('host', 'N/A')
-                    x11_val = data.get('x11', False)
-                    jump_val = data.get('jump_host', 'N/A')
-                    port_val = data.get('port_forward', 'N/A')
-                    target_val = data.get('target', 'N/A')
-                    self.add_session(host_val, user_val, x11_val, target_val, jump_val, port_val)
+                    user_val = data.get("user", "N/A")
+                    host_val = data.get("host", "N/A")
+                    x11_val = data.get("x11", False)
+                    jump_val = data.get("jump_host", "N/A")
+                    port_val = data.get("port_forward", "N/A")
+                    target_val = data.get("target", "N/A")
+                    self.add_session(
+                        host_val, user_val, x11_val, target_val, jump_val, port_val
+                    )
                 else:
                     info_label = self.query_one("#info-label", Label)
-                    
+
                     # Fallback to the global settings if the selected leaf doesn't specify its own
-                    user_val = data.get('user') if 'user' in data else self.options.get('user', 'N/A')
-                    host_val = data.get('host') if 'host' in data else self.options.get('host', 'N/A')
-                    x11_val = data.get('x11') if 'x11' in data else self.options.get('x11', False)
-                    jump_val = data.get('jump_host') if 'jump_host' in data else self.options.get('jump_host', 'N/A')
-                    port_val = data.get('port_forward') if 'port_forward' in data else self.options.get('port_forward', 'N/A')
+                    user_val = (
+                        data.get("user")
+                        if "user" in data
+                        else self.options.get("user", "N/A")
+                    )
+                    host_val = (
+                        data.get("host")
+                        if "host" in data
+                        else self.options.get("host", "N/A")
+                    )
+                    x11_val = (
+                        data.get("x11")
+                        if "x11" in data
+                        else self.options.get("x11", False)
+                    )
+                    jump_val = (
+                        data.get("jump_host")
+                        if "jump_host" in data
+                        else self.options.get("jump_host", "N/A")
+                    )
+                    port_val = (
+                        data.get("port_forward")
+                        if "port_forward" in data
+                        else self.options.get("port_forward", "N/A")
+                    )
 
                     # Save the resolved config for the connect button to use
                     self.current_connection = {
-                        "target": data.get("target", str(event.node.label).replace("⭐ ", "")),
+                        "target": data.get(
+                            "target", str(event.node.label).replace("⭐ ", "")
+                        ),
                         "host": host_val,
                         "user": user_val,
                         "x11": x11_val,
                         "jump_host": jump_val,
-                        "port_forward": port_val
+                        "port_forward": port_val,
                     }
                     self.current_connection_node = event.node
 
@@ -303,25 +380,32 @@ class Cynoshure(App):
                     f"🔧 Adjust the settings for {event.node.label} here.\n\n"
                     f"Current global value: {self.options.get(self.current_config_key, 'N/A')}"
                 )
-                self.query_one("#config-input", Input).value = str(self.options.get(self.current_config_key, ""))
+                self.query_one("#config-input", Input).value = str(
+                    self.options.get(self.current_config_key, "")
+                )
                 switcher.current = "config-view"
         else:
             switcher.current = "empty-view"
-            
+
         # The tree automatically toggles expansion on click, so we don't need to code that!
 
     @on(Button.Pressed, "#btn-save")
     def save_configuration(self, event: Button.Pressed) -> None:
         """Save the input value to the global options."""
-        if hasattr(self, 'current_config_key') and self.current_config_key:
+        if hasattr(self, "current_config_key") and self.current_config_key:
             new_value = self.query_one("#config-input", Input).value
-            
+
             # Special handling for boolean config values like x11
             if self.current_config_key == "x11":
-                self.options[self.current_config_key] = new_value.lower() in ("true", "1", "yes", "y")
+                self.options[self.current_config_key] = new_value.lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                    "y",
+                )
             else:
                 self.options[self.current_config_key] = new_value
-                
+
             self.options.save()
 
             config_label = self.query_one("#config-label", Label)
@@ -334,12 +418,12 @@ class Cynoshure(App):
     @on(Button.Pressed, "#btn-default")
     def default_configuration(self, event: Button.Pressed) -> None:
         """Reset the option to its default state, preventing it from being used in SSH connections."""
-        if hasattr(self, 'current_config_key') and self.current_config_key:
+        if hasattr(self, "current_config_key") and self.current_config_key:
             if self.current_config_key == "x11":
                 self.options[self.current_config_key] = False
             else:
                 self.options[self.current_config_key] = "N/A"
-                
+
             self.options.save()
 
             config_label = self.query_one("#config-label", Label)
@@ -348,12 +432,14 @@ class Cynoshure(App):
                 f"🔧 Adjust the settings for {self.current_config_node.label} here.\n\n"
                 f"Current global value: {self.options.get(self.current_config_key, 'N/A')}"
             )
-            self.query_one("#config-input", Input).value = str(self.options.get(self.current_config_key, ""))
+            self.query_one("#config-input", Input).value = str(
+                self.options.get(self.current_config_key, "")
+            )
 
     @on(Button.Pressed, "#btn-connect")
     def connect_to_ssh(self, event: Button.Pressed) -> None:
         """Execute the SSH connection using the configured settings."""
-        if hasattr(self, 'current_connection'):
+        if hasattr(self, "current_connection"):
             host = self.current_connection.get("host", "N/A")
             user = self.current_connection.get("user", "N/A")
             x11 = self.current_connection.get("x11", False)
@@ -371,7 +457,7 @@ class Cynoshure(App):
         x11 = self.options.get("x11", False)
         jump_host = self.options.get("jump_host", "N/A")
         port_forward = self.options.get("port_forward", "N/A")
-        
+        user_val: str | None = None
         host_val = target
         if "@" in target:
             user_val, host_val = target.split("@", 1)
@@ -389,24 +475,27 @@ class Cynoshure(App):
         x11 = self.options.get("x11", False)
         jump_host = self.options.get("jump_host", "N/A")
         port_forward = self.options.get("port_forward", "N/A")
-        
+
         user_val = "N/A"
         host_val = target
         if "@" in target:
             user_val, host_val = target.split("@", 1)
-            
+
         self.add_session(host_val, user_val, x11, target, jump_host, port_forward)
         self.query_one("#quick-connect-input", Input).value = ""
 
     @on(Button.Pressed, "#btn-quick-delete")
     def delete_favorite_connection(self, event: Button.Pressed) -> None:
         """Delete the selected session."""
-        if hasattr(self, 'current_connection') and hasattr(self, 'current_connection_node'):
+        if hasattr(self, "current_connection") and hasattr(
+            self, "current_connection_node"
+        ):
             target = self.current_connection.get("target")
             if target:
                 self.sessions.remove_entry(target)
                 self.current_connection_node.remove()
                 self.query_one("#main-switcher", ContentSwitcher).current = "empty-view"
+
 
 if __name__ == "__main__":
     app = Cynoshure()
